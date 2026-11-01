@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>기업 재무정보 조회</title>
+  <style>
+    :root {
+      --ink: #000; --paper: #fff; --mute: #6b6b6b; --line: #e3e3e3; --soft: #f5f5f5; --neg: #a4161a;
+      --font: "Helvetica Neue", Helvetica, Arial, "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--font); background: var(--paper); margin: 0; color: var(--ink); font-weight: 300; letter-spacing: .01em; }
+    button, input, select { font-family: inherit; }
+
+    .topbar { background: var(--ink); color: #fff; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; text-align: center; padding: 9px 12px; font-weight: 400; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 56px 24px 64px; }
+    .hero { text-align: center; margin-bottom: 40px; }
+    .hero .eyebrow { font-size: 11px; letter-spacing: .32em; text-transform: uppercase; color: var(--mute); margin-bottom: 14px; font-weight: 400; }
+    h1 { font-size: 34px; font-weight: 300; letter-spacing: .28em; text-transform: uppercase; margin: 0 0 16px; }
+    p.sub { color: var(--mute); margin: 0 auto; font-size: 13px; line-height: 1.8; max-width: 620px; font-weight: 300; }
+
+    form { display: flex; gap: 0; max-width: 640px; margin: 0 auto 56px; border-bottom: 1px solid var(--ink); }
+    input[type=text] { flex: 1; padding: 14px 4px; font-size: 16px; border: 0; background: transparent; outline: none; font-weight: 300; letter-spacing: .06em; }
+    input[type=text]::placeholder { color: #aaa; }
+    button.search { padding: 0 28px; font-size: 12px; letter-spacing: .24em; text-transform: uppercase; border: 0; background: var(--ink); color: #fff; cursor: pointer; font-weight: 400; transition: opacity .15s; }
+    button.search:hover { opacity: .8; }
+    button:disabled { background: #999 !important; cursor: default; }
+
+    .layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 48px; align-items: start; border-top: 1px solid var(--line); padding-top: 32px; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; gap: 32px; } }
+    .list-col { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding-right: 6px; }
+    @media (max-width: 900px) { .list-col { position: static; max-height: none; } }
+    .list-col::-webkit-scrollbar { width: 3px; }
+    .list-col::-webkit-scrollbar-thumb { background: #bbb; }
+
+    .summary { color: var(--mute); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 14px; font-weight: 400; }
+    .summary b { color: var(--ink); }
+    .card { background: var(--paper); padding: 18px 18px 16px; margin-bottom: 8px; cursor: pointer; border: 1px solid var(--line); transition: border-color .15s, background .15s, color .15s; }
+    .card:hover { border-color: var(--ink); }
+    .card:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+    .card.active { border-color: var(--ink); background: var(--ink); color: #fff; }
+    .card h3 { margin: 0 0 10px; font-size: 15px; font-weight: 400; letter-spacing: .06em; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .card .arrow { font-size: 10px; opacity: 0; }
+    .card.active .arrow { opacity: 1; }
+    .crno { font-size: 13px; font-weight: 400; letter-spacing: .12em; display: flex; align-items: center; gap: 10px; }
+    .copy { font-size: 10px; padding: 3px 9px; background: transparent; color: inherit; border: 1px solid currentColor; cursor: pointer; letter-spacing: .12em; opacity: .75; }
+    .copy:hover { opacity: 1; }
+    .row { font-size: 12px; color: var(--mute); margin-top: 6px; line-height: 1.6; }
+    .card.active .row { color: #bdbdbd; }
+
+    .msg { text-align: center; color: var(--mute); padding: 32px 12px; line-height: 1.9; font-size: 13px; }
+    .errbox { border: 1px solid var(--ink); border-left: 4px solid var(--neg); padding: 16px 18px; line-height: 1.7; margin-top: 8px; }
+    .errbox .title { font-weight: 400; color: var(--neg); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px; }
+    .errbox .hint { font-size: 13px; color: #333; }
+    .log { margin-top: 56px; font-size: 12px; color: var(--mute); border-top: 1px solid var(--line); padding: 16px 0 0; }
+    .log summary { cursor: pointer; font-weight: 400; letter-spacing: .16em; text-transform: uppercase; font-size: 11px; }
+    .log li { margin: 5px 0; word-break: break-all; }
+    .log ul { padding-left: 18px; }
+    .ok { color: #2d6a3e; } .ng { color: var(--neg); }
+
+    #bsPanel, #stockPanel { margin-top: 24px; }
+    .fin { background: var(--paper); padding: 28px 0 8px; min-height: 120px; border-top: 1px solid var(--ink); }
+    .fin.empty { display: flex; align-items: center; justify-content: center; color: #aaa; min-height: 280px; border: 1px solid var(--line); font-size: 12px; letter-spacing: .24em; text-transform: uppercase; }
+    .fin-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+    .fin-head h2 { margin: 0; font-size: 18px; font-weight: 300; letter-spacing: .18em; text-transform: uppercase; }
+    .fin-head h2 .no { font-size: 11px; color: var(--mute); margin-right: 12px; letter-spacing: .2em; font-weight: 400; }
+    .fin-head small { color: var(--mute); font-weight: 300; font-size: 12px; margin-left: 10px; letter-spacing: .12em; }
+    .fin-ctrl { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--mute); letter-spacing: .14em; text-transform: uppercase; }
+    .fin-ctrl label { display: flex; align-items: center; gap: 8px; }
+    select { padding: 6px 24px 6px 6px; border: 0; border-bottom: 1px solid var(--ink); border-radius: 0; font-size: 13px; background: transparent; color: var(--ink); cursor: pointer; outline: none; letter-spacing: .04em; }
+    .tbl-wrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: right; font-weight: 300; font-variant-numeric: tabular-nums; }
+    th { background: var(--paper); color: var(--ink); font-weight: 400; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; border-bottom: 1px solid var(--ink); }
+    tbody tr:hover td { background: var(--soft); }
+    th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+    td.neg { color: var(--neg); }
+    .badge { font-size: 10px; border: 1px solid var(--ink); color: var(--ink); padding: 2px 8px; letter-spacing: .12em; font-weight: 400; }
+    .note { font-size: 11.5px; color: var(--mute); margin-top: 18px; line-height: 1.9; }
+    details.raw { margin-top: 16px; font-size: 12px; color: var(--mute); }
+    details.raw summary { cursor: pointer; letter-spacing: .14em; text-transform: uppercase; font-size: 10.5px; }
+    details.raw pre { background: var(--soft); padding: 14px; overflow-x: auto; max-height: 360px; color: #333; }
+    .progress { color: var(--mute); font-size: 12px; padding: 8px 0; letter-spacing: .12em; }
+    .bar { height: 2px; background: var(--line); overflow: hidden; margin-top: 10px; }
+    .bar > i { display: block; height: 100%; background: var(--ink); width: 0; transition: width .2s; }
+
+    .bs-wrap { max-height: 560px; overflow: auto; }
+    .bs-wrap thead th { position: sticky; top: 0; z-index: 1; }
+    tr.total td { font-weight: 400; background: var(--soft); color: var(--ink); }
+    td.acc { white-space: normal; min-width: 180px; }
+
+    .tabs { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .tabs button { padding: 10px 0; font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--mute); cursor: pointer; margin-bottom: -1px; }
+    .tabs button:hover { color: var(--ink); }
+    .tabs button.on { color: var(--ink); border-bottom-color: var(--ink); font-weight: 400; }
+    .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px; margin-bottom: 20px; background: var(--line); border: 1px solid var(--line); }
+    .kv > div { background: var(--paper); padding: 16px 16px 14px; }
+    .kv small { display: block; color: var(--mute); font-size: 10px; margin-bottom: 8px; letter-spacing: .16em; text-transform: uppercase; }
+    .kv b { font-size: 15px; word-break: break-all; font-weight: 400; letter-spacing: .03em; }
+    .sub-title { font-size: 11px; font-weight: 400; color: var(--ink); margin: 10px 0; letter-spacing: .18em; text-transform: uppercase; }
+    .st-wrap { max-height: 420px; overflow: auto; }
+    .st-wrap thead th { position: sticky; top: 0; z-index: 1; }
+
+    .stat-box { background: var(--soft); padding: 20px 20px 18px; margin-bottom: 24px; }
+    .stat-box .sub-title { margin: 0 0 14px; }
+    .stat-box .kv { margin-bottom: 14px; }
+    .stat-box .kv b.big { font-size: 22px; font-weight: 300; letter-spacing: .02em; }
+    .split { display: flex; height: 4px; overflow: hidden; background: #d8d8d8; }
+    .split i { display: block; height: 100%; }
+    .split .o { background: #000; }
+    .split .p { background: #9a9a9a; }
+    .legend { font-size: 11px; color: var(--mute); margin-top: 10px; display: flex; gap: 20px; flex-wrap: wrap; letter-spacing: .1em; }
+    .legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 7px; }
+    .legend .o::before { background: #000; }
+    .legend .p::before { background: #9a9a9a; }
+    .stat-err { font-size: 12.5px; color: var(--neg); }
+    .basis { font-size: 11.5px; color: var(--mute); letter-spacing: .06em; margin: -8px 0 16px; line-height: 1.7; }
+
+    footer { text-align: center; font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: #aaa; padding: 28px 12px 40px; border-top: 1px solid var(--line); }
+
+    .consult-cta { text-align: center; padding: 56px 12px 48px; border-top: 1px solid var(--line); margin-top: 56px; }
+    .consult-cta .eyebrow { font-size: 11px; letter-spacing: .32em; text-transform: uppercase; color: var(--mute); margin-bottom: 12px; font-weight: 400; }
+    .consult-cta p { font-size: 13px; color: var(--mute); margin: 0 0 22px; line-height: 1.8; }
+    .consult-btn { padding: 16px 44px; font-size: 12px; letter-spacing: .28em; text-transform: uppercase; border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; transition: background .15s, color .15s; }
+    .consult-btn:hover { background: #fff; color: var(--ink); }
+
+    .phone-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 12px; }
+    .phone-overlay.open { display: flex; }
+    .phone { width: 350px; height: 680px; max-height: 94vh; background: #000; border-radius: 48px; padding: 12px; position: relative; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+    .phone::before { content: ""; position: absolute; right: -3px; top: 130px; width: 3px; height: 60px; background: #222; border-radius: 0 3px 3px 0; }
+    .phone-screen { background: #fff; border-radius: 38px; height: 100%; overflow: hidden; display: flex; flex-direction: column; position: relative; color: var(--ink); }
+    .phone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 26px; background: #000; border-radius: 0 0 18px 18px; z-index: 3; }
+    .ps-close { position: absolute; top: 34px; right: 18px; z-index: 3; background: none; border: 0; font-size: 22px; line-height: 1; cursor: pointer; color: var(--mute); padding: 4px 8px; }
+    .ps-close:hover { color: var(--ink); }
+    .ps-head { padding: 40px 24px 0; }
+    .ps-dots { display: flex; gap: 6px; margin-bottom: 22px; }
+    .ps-dots i { flex: 1; height: 2px; background: var(--line); }
+    .ps-dots i.on { background: var(--ink); }
+    .ps-step-no { font-size: 10px; letter-spacing: .26em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; }
+    .ps-title { font-size: 20px; font-weight: 300; letter-spacing: .04em; line-height: 1.4; margin: 0 0 6px; }
+    .ps-desc { font-size: 12px; color: var(--mute); line-height: 1.7; margin: 0; }
+    .ps-body { flex: 1; overflow-y: auto; padding: 22px 24px 8px; }
+    .ps-step { display: none; flex-direction: column; gap: 10px; }
+    .ps-step.on { display: flex; }
+    .ps-card { text-align: left; border: 1px solid var(--line); background: #fff; padding: 18px 16px; cursor: pointer; transition: all .15s; font-family: inherit; color: var(--ink); }
+    .ps-card:hover { border-color: var(--ink); }
+    .ps-card.sel { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .ps-card b { display: block; font-weight: 400; font-size: 14px; letter-spacing: .05em; margin-bottom: 6px; }
+    .ps-card span { font-size: 12px; color: var(--mute); line-height: 1.6; }
+    .ps-card.sel span { color: #bdbdbd; }
+    .ps-input { width: 100%; border: 0; border-bottom: 1px solid var(--ink); padding: 14px 2px; font-size: 18px; font-weight: 300; letter-spacing: .08em; outline: none; background: transparent; font-family: inherit; }
+    .ps-input::placeholder { color: #bbb; }
+    .ps-err { font-size: 12px; color: var(--neg); min-height: 18px; line-height: 1.6; }
+    .ps-agree { font-size: 11px; color: var(--mute); line-height: 1.7; }
+    .ps-foot { padding: 12px 24px 28px; display: flex; gap: 8px; }
+    .ps-foot button { flex: 1; padding: 14px 8px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; border: 1px solid var(--ink); font-family: inherit; }
+    .ps-foot .pri { background: var(--ink); color: #fff; }
+    .ps-foot .sec { background: #fff; color: var(--ink); }
+    .ps-foot button:disabled { background: #ccc !important; border-color: #ccc; color: #fff; cursor: default; }
+    .ps-done { text-align: center; padding-top: 36px; }
+    .ps-done .check { width: 64px; height: 64px; border: 1px solid var(--ink); border-radius: 50%; margin: 0 auto 22px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">Corporate Financial Data &nbsp;·&nbsp; Open API</div>
+
+  <div class="container">
+    <div class="hero">
+      <div class="eyebrow">Corporate Finance Archive</div>
+      <h1>기업 재무정보</h1>
+      <p class="sub">기업명을 검색한 뒤 목록에서 기업을 선택하면 요약재무제표, 재무상태표, 주식발행정보(발행현황 포함)를 확인할 수 있습니다.</p>
+    </div>
+
+    <form id="form">
+      <input type="text" id="name" placeholder="기업명을 입력하세요 — 예) 삼성전자" autocomplete="off" required />
+      <button id="btn" class="search" type="submit">검색</button>
+    </form>
+
+    <div class="layout">
+      <div class="list-col" id="listCol">
+        <div id="result"><div class="msg">기업명을 검색하세요.</div></div>
+      </div>
+      <div>
+        <div id="finPanel"><div class="fin empty">기업을 선택하세요</div></div>
+        <div id="bsPanel"></div>
+        <div id="stockPanel"></div>
+      </div>
+    </div>
+
+    <div id="logWrap"></div>
+  </div>
+
+  <section class="consult-cta">
+    <div class="eyebrow">Contact</div>
+    <p>세무·회계 상담, 사이트 기능 문의 등<br>궁금한 점을 남겨주시면 이메일로 회신드립니다.</p>
+    <button type="button" class="consult-btn" id="consultOpen">상담하기</button>
+  </section>
+
+  <div class="phone-overlay" id="consultOverlay" aria-hidden="true">
+    <div class="phone" role="dialog" aria-modal="true" aria-label="상담 신청">
+      <div class="phone-screen">
+        <div class="phone-notch"></div>
+        <button type="button" class="ps-close" id="consultClose" aria-label="닫기">×</button>
+
+        <div class="ps-head" id="psHead">
+          <div class="ps-dots"><i></i><i></i><i></i></div>
+          <div class="ps-step-no" id="psStepNo"></div>
+          <h3 class="ps-title" id="psTitle"></h3>
+          <p class="ps-desc" id="psDesc"></p>
+        </div>
+
+        <div class="ps-body">
+          <div class="ps-step" data-step="1" id="psPurposes"></div>
+
+          <div class="ps-step" data-step="2">
+            <input class="ps-input" id="psPhone" type="tel" inputmode="numeric" placeholder="010-0000-0000" autocomplete="tel" />
+            <div class="ps-err" id="psPhoneErr"></div>
+          </div>
+
+          <div class="ps-step" data-step="3">
+            <input class="ps-input" id="psEmail" type="email" placeholder="name@example.com" autocomplete="email" style="font-size:16px" />
+            <div class="ps-err" id="psEmailErr"></div>
+            <div class="ps-agree">입력하신 정보는 상담 회신 목적으로만 사용됩니다.</div>
+          </div>
+
+          <div class="ps-step" data-step="4">
+            <div class="ps-done">
+              <div class="check">✓</div>
+              <h3 class="ps-title">접수되었습니다</h3>
+              <p class="ps-desc">남겨주신 이메일로<br>확인 후 연락드리겠습니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ps-foot" id="psFoot"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>공공데이터포털 · 금융위원회 기업재무정보 / 주식발행정보</footer>
+
+  <script>
+    const SERVICE_KEY = "7dd71febc50646ec7dbab0bd568a32bb326b0f4babe321882eec0c02f66f3de0";
+    const OUTLINE_URL = "https://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2";
+    const FINA_URL    = "https://apis.data.go.kr/1160100/service/GetFinaStatInfoService_V2/getSummFinaStat_V2";
+    const BS_URL      = "https://apis.data.go.kr/1160100/service/GetFinaStatInfoService_V2/getBs_V2";
+    const STOCK_BASE  = "https://apis.data.go.kr/1160100/GetStocIssuInfoService_V3";
+    const STAT_URL    = STOCK_BASE + "/getStocIssuStat_V3";
+
+    const ROUTES = [
+      { name: "직접 호출",    build: (u) => u },
+      { name: "corsproxy.io", build: (u) => "https://corsproxy.io/?url=" + encodeURIComponent(u) },
+      { name: "allorigins",   build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) },
+      { name: "codetabs",     build: (u) => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u) },
+    ];
+
+    const GATEWAY = {
+      "03": "데이터 없음",
+      "10": "잘못된 요청 파라미터",
+      "11": "필수 요청 파라미터 누락",
+      "12": "서비스가 없거나 폐기됨 (End Point 확인)",
+      "20": "서비스 접근 거부 (해당 API의 활용신청 승인 여부 확인)",
+      "21": "일시적으로 사용이 중지된 인증키",
+      "22": "일일 요청 한도 초과",
+      "30": "등록되지 않은 인증키 (오타이거나, 신청 직후라면 1~2시간 후 반영)",
+      "31": "인증키 사용 기간 만료",
+      "32": "등록되지 않은 IP",
+    };
+
+    const FIELDS = [
+      { key: "enpSaleAmt",    label: "매출액",      money: true },
+      { key: "enpBzopPft",    label: "영업이익",    money: true },
+      { key: "enpCrtmNpf",    label: "당기순이익",  money: true },
+      { key: "iclsPalClcAmt", label: "포괄손익",    money: true },
+      { key: "enpTastAmt",    label: "총자산",      money: true },
+      { key: "enpTdbtAmt",    label: "총부채",      money: true },
+      { key: "enpTcptAmt",    label: "총자본",      money: true },
+      { key: "enpCptlAmt",    label: "자본금",      money: true },
+      { key: "fnclDebtRto",   label: "부채비율(%)", money: false },
+    ];
+
+    const BS_NAME_KEYS = ["acitNm", "acntNm"];
+    const BS_COLS = [
+      ["crtmAcitAmt",  "당기"],
+      ["pvtrAcitAmt",  "전기"],
+      ["bpvtrAcitAmt", "전전기"],
+      ["thqrAcitAmt",  "당분기"],
+      ["lsqtAcitAmt",  "전분기"],
+    ];
+
+    const STOCK_TABS = [
+      { key: "basic",  label: "종목기본정보",      path: "/getItemBasiInfo_V3",  kv: true },
+      { key: "issue",  label: "발행내역",          path: "/getStocIssuInfo_V3" },
+      { key: "lockup", label: "의무보호예수반환",  path: "/getLockUpRetuInfo_V3" },
+      { key: "stat",   label: "발행현황 상세",     path: "/getStocIssuStat_V3" },
+    ];
+
+    const STAT_ORD_KEYS = ["onskTisuCnt", "ordnStckTotIssuCnt"];
+    const STAT_PRF_KEYS = ["pfstTisuCnt", "prfStckTotIssuCnt"];
+
+    const STOCK_LABELS = {
+      basDt: "기준일자",
+      isinCd: "ISIN코드", isinCdNm: "ISIN코드명",
+      scrsItmsKcd: "종목종류코드", scrsItmsKcdNm: "종목종류",
+      stckParPrc: "주식액면가", issuStckCnt: "발행주식수",
+      lstgDt: "상장일자", lstgAbolDt: "상장폐지일자",
+      stckIssuDt: "주식발행일자", stckIssuRcnt: "주식발행차수", stckIssuCnt: "주식발행차수",
+      stckIssuCascCd: "발행사유코드", stckIssuCascCdNm: "발행사유",
+      stckIssuShcnt: "발행주식수", stckIssuStckCnt: "발행주식수",
+      stckIssuMcd: "발행방법코드", stckIssuMcdNm: "발행방법",
+      retuDt: "반환일자", retuStckCnt: "반환주식수", retuAftStckCnt: "반환후잔량수",
+      lockUpRetuDt: "반환일자", lockUpRetuStckCnt: "반환주식수", lockUpRetuAftQty: "반환후잔량수",
+      onskTisuCnt: "보통주 총발행수", pfstTisuCnt: "우선주 총발행수",
+      ordnStckTotIssuCnt: "보통주 총발행수", prfStckTotIssuCnt: "우선주 총발행수",
+      stckKindCd: "주식종류코드", stckKindCdNm: "주식종류",
+    };
+    const STOCK_HIDE = new Set(["crno", "stckIssuCmpyNm"]);
+
+    const UNITS = {
+      "1":         { label: "원",     digits: 0 },
+      "1000000":   { label: "백만원", digits: 0 },
+      "100000000": { label: "억원",   digits: 1 },
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const form = $("form"), nameInput = $("name"), btn = $("btn");
+    const resultEl = $("result"), finPanel = $("finPanel"), bsPanel = $("bsPanel"),
+          stockPanel = $("stockPanel"), logWrap = $("logWrap");
+
+    const EMPTY_FIN = `<div class="fin empty">기업을 선택하세요</div>`;
+
+    const formatCrno = (n) => n && n.length === 13 ? `${n.slice(0, 6)}-${n.slice(6)}` : n || "-";
+    const esc = (s) => String(s ?? "-").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+
+    /* ---------- 공통 API 호출 ---------- */
+    let attempts = [];
+    let workingRoute = null;
+    class RouteError extends Error {}
+    class ApiError extends Error {
+      constructor(msg, code) { super(msg); this.code = code; }
+    }
+
+    async function fetchVia(route, endpoint, params) {
+      const qs = new URLSearchParams({
+        serviceKey: SERVICE_KEY, pageNo: "1", numOfRows: "20", resultType: "json", ...params,
+      });
+      const url = route.build(`${endpoint}?${qs}`);
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      let res, text;
+      try {
+        res = await fetch(url, { signal: ctrl.signal });
+        text = await res.text();
+      } catch (e) {
+        throw new RouteError(
+          e.name === "AbortError"
+            ? "12초 내 응답 없음 (시간 초과)"
+            : "연결 실패 - CORS 차단 또는 네트워크/프록시 장애 (" + (e.message || e) + ")"
+        );
+      } finally {
+        clearTimeout(timer);
+      }
+
+      if (text.includes("OpenAPI_ServiceResponse")) {
+        const pick = (t) => text.match(new RegExp(`<${t}>([^<]*)</${t}>`))?.[1];
+        const code = pick("returnReasonCode");
+        throw new ApiError(`[${code}] ${GATEWAY[code] || pick("returnAuthMsg") || "API 오류"}`, code);
+      }
+
+      let json;
+      try { json = JSON.parse(text); }
+      catch {
+        throw new RouteError(`JSON이 아닌 응답 (HTTP ${res.status}): ${text.slice(0, 80).replace(/\s+/g, " ")}`);
+      }
+
+      const h = json?.response?.header;
+      if (h && h.resultCode !== "00") {
+        if (h.resultCode === "03") return [];
+        throw new ApiError(`[${h.resultCode}] ${GATEWAY[h.resultCode] || h.resultMsg}`, h.resultCode);
+      }
+
+      const body = json?.response?.body;
+      const items = body?.items?.item;
+      const list = !items ? [] : Array.isArray(items) ? items : [items];
+      list.totalCount = Number(body?.totalCount) || list.length;   // 전체 건수 (최신일 탐색용)
+      return list;
+    }
+
+    async function callApi(endpoint, params, label = "") {
+      const order = workingRoute
+        ? [workingRoute, ...ROUTES.filter((r) => r !== workingRoute)]
+        : ROUTES;
+
+      for (const route of order) {
+        try {
+          const items = await fetchVia(route, endpoint, params);
+          attempts.push({ route: route.name, ok: true, msg: `${label}성공 (${items.length}건)` });
+          workingRoute = route;
+          return items;
+        } catch (e) {
+          if (e instanceof ApiError) {
+            attempts.push({ route: route.name, ok: false, msg: `${label}경로는 정상, API 오류: ${e.message}` });
+            throw e;
+          }
+          attempts.push({ route: route.name, ok: false, msg: `${label}${e.message}` });
+        }
+      }
+      throw new RouteError("모든 경로가 실패했습니다.");
+    }
+
+    async function callApiAll(endpoint, params, label, pageSize = 100, maxPages = 5) {
+      const all = [];
+      for (let p = 1; p <= maxPages; p++) {
+        const items = await callApi(
+          endpoint,
+          { ...params, numOfRows: String(pageSize), pageNo: String(p) },
+          label + (p > 1 ? `p${p} ` : "")
+        );
+        all.push(...items);
+        if (items.length < pageSize) break;
+      }
+      const seen = new Set();
+      return all.filter((r) => {
+        const k = JSON.stringify(r);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
+
+    /* ---------- 기준일자: 오늘 우선, 없으면 데이터상 최신일 ---------- */
+    const todayYmd = () =>
+      new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }).replace(/-/g, "");
+
+    async function callByBasDt(endpoint, params, label, pageSize = 100, maxPages = 3) {
+      const today = todayYmd();
+
+      // 1) 오늘 기준일자로 조회
+      const todayRows = await callApiAll(endpoint, { ...params, basDt: today }, `${label}오늘(${today}) `, pageSize, maxPages);
+      if (todayRows.length > 0) return { rows: todayRows, basDt: today, requested: today, fallback: false };
+
+      // 2) 오늘 자료가 없으면 첫 페이지와 끝 페이지에서 가장 최신 기준일자를 찾음
+      const first = await callApi(endpoint, { ...params, numOfRows: "100", pageNo: "1" }, `${label}최신일 탐색 `);
+      const probe = [...first];
+      const total = first.totalCount ?? first.length;
+      const lastPage = Math.ceil(total / 100);
+      if (lastPage > 1) {
+        const tail = await callApi(endpoint, { ...params, numOfRows: "100", pageNo: String(lastPage) }, `${label}최신일 탐색(끝 페이지) `);
+        probe.push(...tail);
+      }
+
+      const dates = probe.map((r) => String(r.basDt || "")).filter((d) => /^\d{8}$/.test(d));
+      if (dates.length === 0) return { rows: probe, basDt: null, requested: today, fallback: true };
+
+      // 3) 찾은 최신 기준일자로 다시 조회
+      const latest = dates.reduce((a, b) => (a > b ? a : b));
+      let rows = await callApiAll(endpoint, { ...params, basDt: latest }, `${label}최신일(${latest}) `, pageSize, maxPages);
+      if (rows.length === 0) rows = probe.filter((r) => String(r.basDt) === latest);
+      return { rows, basDt: latest, requested: today, fallback: true };
+    }
+
+    function basisHtml(res) {
+      if (!res) return "";
+      const f = (d) => (d ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : "-");
+      const text = !res.fallback
+        ? `조회 기준일: ${f(res.basDt)} (오늘)`
+        : res.basDt
+          ? `조회 기준일: ${f(res.basDt)} · 오늘(${f(res.requested)}) 자료가 아직 없어 데이터상 가장 최신일로 조회했습니다.`
+          : `오늘(${f(res.requested)}) 자료가 없어 조회 가능한 데이터를 표시합니다.`;
+      return `<div class="basis">${text}</div>`;
+    }
+
+    function renderLog() {
+      if (!attempts.length) { logWrap.innerHTML = ""; return; }
+      const allOk = attempts.every((a) => a.ok);
+      logWrap.innerHTML = `
+        <details class="log" ${allOk ? "" : "open"}>
+          <summary>시도 내역 (${attempts.length})</summary>
+          <ul>${attempts.map((a) =>
+            `<li class="${a.ok ? "ok" : "ng"}">${a.ok ? "✓" : "✕"} <b>${esc(a.route)}</b> - ${esc(a.msg)}</li>`
+          ).join("")}</ul>
+        </details>`;
+    }
+
+    function errorHtml(e) {
+      let title, hint;
+      if (e instanceof ApiError) {
+        title = "공공데이터 API가 오류를 반환했습니다";
+        hint = e.message;
+        if (e.code === "20")
+          hint += " → 해당 서비스(상세기능)의 활용신청이 승인되었는지 마이페이지에서 확인하세요.";
+      } else if (e instanceof RouteError) {
+        title = "모든 우회 경로가 실패했습니다";
+        hint = "아래 '시도 내역'에서 경로별 원인을 확인하세요. 공용 프록시는 무료라 차단/제한/장애가 잦습니다. "
+             + "계속 실패하면 본인 Cloudflare Worker나 Node.js 서버 같은 자체 프록시가 가장 확실합니다.";
+      } else {
+        title = "알 수 없는 오류";
+        hint = String(e?.message || e);
+      }
+      return `<div class="errbox"><div class="title">${esc(title)}</div><div class="hint">${esc(hint)}</div></div>`;
+    }
+
+    const isSearchLog = (a) => a.msg.startsWith("[기업검색]") || a.msg.startsWith("[포함검색]");
+
+    /* ---------- 기업 검색 ---------- */
+    function dedupe(items) {
+      const filled = (o) => Object.values(o).filter((v) => v !== "" && v != null).length;
+      const better = (a, b) => {
+        const da = Number(a.basDt) || 0, db = Number(b.basDt) || 0;
+        if (da !== db) return da > db;
+        return filled(a) > filled(b);
+      };
+      const map = new Map();
+      for (const it of items) {
+        const key = it.crno || `${it.corpNm}|${it.bzno}`;
+        const prev = map.get(key);
+        if (!prev || better(it, prev)) map.set(key, it);
+      }
+      return [...map.values()];
+    }
+
+    let companies = [];
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      if (!name) return;
+
+      btn.disabled = true;
+      loadToken++; bsToken++; stockToken++;
+      attempts = [];
+      logWrap.innerHTML = "";
+      companies = [];
+      finState = null; bsState = null; stockState = null;
+      finPanel.innerHTML = EMPTY_FIN;
+      bsPanel.innerHTML = "";
+      stockPanel.innerHTML = "";
+      resultEl.innerHTML = '<div class="msg">검색 중...</div>';
+
+      try {
+        let items = await callApi(OUTLINE_URL, { corpNm: name, basDt: todayYmd() }, "[기업검색] 오늘자 ");
+        if (items.length === 0) {
+          items = await callApi(OUTLINE_URL, { corpNm: name }, "[기업검색] 최신자 ");
+        }
+
+        if (items.length === 0) {
+          try {
+            const norm = (s) => String(s || "").replace(/\s/g, "");
+            const like = await callApi(OUTLINE_URL, { likeCorpNm: name }, "[포함검색] ");
+            items = like.filter((i) => norm(i.corpNm).includes(norm(name)));
+          } catch (_) {}
+        }
+
+        const total = items.length;
+        items = dedupe(items);
+        const removed = total - items.length;
+        companies = items;
+
+        if (items.length === 0) {
+          resultEl.innerHTML = `<div class="msg">"${esc(name)}"에 대한 검색 결과가 없습니다.<br>"(주)" 없이, 정확한 법인명으로 입력해 보세요.</div>`;
+          finPanel.innerHTML = "";
+        } else {
+          const summary = `<div class="summary">총 <b>${items.length}</b>건${removed > 0 ? ` (중복 ${removed}건 제외)` : ""} · 선택하면 오른쪽에 표시</div>`;
+          resultEl.innerHTML = summary + items.map((i) => `
+            <div class="card" tabindex="0" role="button" data-crno="${esc(i.crno)}" data-name="${esc(i.corpNm)}">
+              <h3><span>${esc(i.corpNm)}</span><span class="arrow">▶</span></h3>
+              <div class="crno">
+                <span>${esc(formatCrno(i.crno))}</span>
+                <button type="button" class="copy" data-v="${esc(i.crno)}">복사</button>
+              </div>
+              <div class="row">대표자: ${esc(i.enpRprFnm)}</div>
+              <div class="row">주소: ${esc(i.enpBsadr)}</div>
+            </div>`).join("");
+
+          selectCompany(items[0].crno, items[0].corpNm, false);
+        }
+      } catch (err) {
+        console.error(err);
+        resultEl.innerHTML = errorHtml(err);
+        finPanel.innerHTML = "";
+      } finally {
+        renderLog();
+        btn.disabled = false;
+      }
+    });
+
+    /* ---------- 기업 선택 → 오른쪽 패널 ---------- */
+    const finCache = new Map();
+    const bsCache  = new Map();
+    const stockCache = new Map();
+    const settings = { count: 5, unit: "100000000" };
+    let finState = null;
+    let bsState = null;
+    let stockState = null;
+    let loadToken = 0;
+    let bsToken = 0;
+    let stockToken = 0;
+
+    function selectCompany(crno, name, scrollOnMobile = true) {
+      document.querySelectorAll(".card").forEach((c) => c.classList.toggle("active", c.dataset.crno === crno));
+      attempts = attempts.filter(isSearchLog);
+      loadFinance(crno, name);
+      if (scrollOnMobile && window.matchMedia("(max-width: 900px)").matches) {
+        finPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    function fmtAmount(v, unit) {
+      if (v === "" || v == null) return { text: "-", neg: false };
+      const n = Number(v);
+      if (Number.isNaN(n)) return { text: esc(v), neg: false };
+      return {
+        text: (n / Number(unit)).toLocaleString("ko-KR", { minimumFractionDigits: 0, maximumFractionDigits: UNITS[unit].digits }),
+        neg: n < 0,
+      };
+    }
+
+    function fmtRatio(row) {
+      let v = row.fnclDebtRto;
+      if (v === "" || v == null) {
+        const d = Number(row.enpTdbtAmt), c = Number(row.enpTcptAmt);
+        if (!Number.isNaN(d) && !Number.isNaN(c) && c !== 0 && row.enpTdbtAmt !== "" && row.enpTcptAmt !== "") v = (d / c) * 100;
+        else return { text: "-", neg: false };
+      }
+      const n = Number(v);
+      if (Number.isNaN(n)) return { text: "-", neg: false };
+      return { text: n.toLocaleString("ko-KR", { maximumFractionDigits: 1 }), neg: n < 0 };
+    }
+
+    /* ===== 요약재무제표 ===== */
+    function headHtml(name, crno) {
+      return `
+        <div class="fin-head">
+          <h2><span class="no">01</span>${esc(name)} 요약재무제표 <small>${esc(formatCrno(crno))}</small></h2>
+          <div class="fin-ctrl">
+            <label>기간
+              <select id="yearCount">
+                ${[3, 5, 10].map((n) => `<option value="${n}" ${n === settings.count ? "selected" : ""}>최근 ${n}년</option>`).join("")}
+              </select>
+            </label>
+            <label>단위
+              <select id="unitSel">
+                ${Object.entries(UNITS).map(([k, u]) => `<option value="${k}" ${k === settings.unit ? "selected" : ""}>${u.label}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+        </div>`;
+    }
+
+    async function loadFinance(crno, name) {
+      const token = ++loadToken;
+      bsToken++;
+      bsState = null;
+      bsPanel.innerHTML = "";
+
+      const count = settings.count;
+      const lastYear = new Date().getFullYear() - 1;
+      const years = Array.from({ length: count }, (_, i) => lastYear - i);
+
+      finPanel.innerHTML = `<div class="fin">${headHtml(name, crno)}
+        <div class="progress" id="prog">조회 준비 중...</div>
+        <div class="bar"><i id="barFill"></i></div></div>`;
+      bindFinCtrl(crno, name);
+
+      loadStock(crno, name, "basic");
+
+      const rows = [], missing = [];
+      try {
+        for (let idx = 0; idx < years.length; idx++) {
+          if (token !== loadToken) return;
+          const y = years[idx];
+          const prog = $("prog");
+          if (prog) prog.textContent = `${y}년 조회 중... (${idx + 1}/${years.length})`;
+          const fill = $("barFill");
+          if (fill) fill.style.width = `${(idx / years.length) * 100}%`;
+
+          const ck = `${crno}|${y}`;
+          let data = finCache.get(ck);
+          if (!data) {
+            data = await callApi(FINA_URL, { crno, bizYear: String(y), numOfRows: "10" }, `[재무 ${y}] `);
+            finCache.set(ck, data);
+          }
+          if (token !== loadToken) return;
+          if (data.length === 0) missing.push(y);
+          else rows.push(...data.map((r) => ({ ...r, _year: y })));
+        }
+
+        const seen = new Set();
+        const uniq = rows.filter((r) => {
+          const k = `${r._year}|${r.fnclDcd || r.fnclDcdNm}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+
+        finState = { crno, name, years, rows: uniq, missing };
+        renderFinance();
+        renderLog();
+
+        const withData = years.filter((y) => !missing.includes(y));
+        loadBs(crno, name, withData[0] ?? years[0], years, missing, null);
+      } catch (err) {
+        if (token !== loadToken) return;
+        console.error(err);
+        finPanel.innerHTML = `<div class="fin">${headHtml(name, crno)}${errorHtml(err)}</div>`;
+        bindFinCtrl(crno, name);
+        renderLog();
+      }
+    }
+
+    function renderFinance() {
+      const { crno, name, rows, missing, years } = finState;
+      const unit = settings.unit;
+      const head = headHtml(name, crno);
+
+      if (rows.length === 0) {
+        finPanel.innerHTML = `<div class="fin">${head}
+          <div class="msg">조회된 요약재무제표가 없습니다.<br>
+          (조회한 연도: ${years.join(", ")})<br>
+          비상장·소규모 법인은 재무정보가 제공되지 않을 수 있습니다.</div></div>`;
+        bindFinCtrl(crno, name);
+        return;
+      }
+
+      const sorted = [...rows].sort((a, b) => b._year - a._year || String(a.fnclDcd).localeCompare(String(b.fnclDcd)));
+
+      const body = sorted.map((r) => {
+        const cells = FIELDS.map((f) => {
+          const c = f.money ? fmtAmount(r[f.key], unit) : fmtRatio(r);
+          const title = f.money && r[f.key] !== "" && r[f.key] != null
+            ? ` title="${esc(Number(r[f.key]).toLocaleString("ko-KR"))}원"` : "";
+          return `<td class="${c.neg ? "neg" : ""}"${title}>${c.text}</td>`;
+        }).join("");
+        return `<tr>
+          <td>${esc(r.bizYear || r._year)}</td>
+          <td><span class="badge">${esc(r.fnclDcdNm || r.fnclDcd || "-")}</span></td>
+          ${cells}</tr>`;
+      }).join("");
+
+      finPanel.innerHTML = `
+        <div class="fin">
+          ${head}
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>사업연도</th><th>재무제표</th>${FIELDS.map((f) => `<th>${f.label}</th>`).join("")}</tr></thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+          <div class="note">
+            · 금액 단위: ${UNITS[unit].label} (셀에 마우스를 올리면 원 단위 원본 값 표시)<br>
+            · 붉은색은 음수(적자/자본잠식 등)입니다.<br>
+            ${missing.length ? `· 데이터가 없는 연도: ${missing.join(", ")}<br>` : ""}
+            · 값이 "-"인 항목은 해당 법인에 값이 없거나 API 필드명이 다른 경우입니다. 아래 원본 데이터를 확인하세요.
+          </div>
+          <details class="raw">
+            <summary>API 원본 데이터 보기</summary>
+            <pre>${esc(JSON.stringify(sorted.map(({ _year, ...r }) => r), null, 2))}</pre>
+          </details>
+        </div>`;
+      bindFinCtrl(crno, name);
+    }
+
+    function bindFinCtrl(crno, name) {
+      $("unitSel")?.addEventListener("change", (e) => {
+        settings.unit = e.target.value;
+        if (finState && finState.crno === crno) renderFinance();
+        if (bsState && bsState.crno === crno && bsState.rows) renderBs();
+      });
+      $("yearCount")?.addEventListener("change", (e) => {
+        settings.count = Number(e.target.value);
+        attempts = attempts.filter(isSearchLog);
+        loadFinance(crno, name);
+      });
+    }
+
+    /* ===== 재무상태표 ===== */
+    function bsHeadHtml(s) {
+      const types = s.types || [];
+      return `
+        <div class="fin-head">
+          <h2><span class="no">02</span>${esc(s.name)} 재무상태표 <small>${esc(formatCrno(s.crno))}</small></h2>
+          <div class="fin-ctrl">
+            <label>사업연도
+              <select id="bsYear">
+                ${s.years.map((y) => `<option value="${y}" ${y === s.year ? "selected" : ""}>${y}년${s.missing.includes(y) ? " (요약 없음)" : ""}</option>`).join("")}
+              </select>
+            </label>
+            ${types.length > 1 ? `
+            <label>재무제표 구분
+              <select id="bsType">
+                ${types.map((t) => `<option value="${esc(t.key)}" ${t.key === s.type ? "selected" : ""}>${esc(t.label)}</option>`).join("")}
+              </select>
+            </label>` : ""}
+          </div>
+        </div>`;
+    }
+
+    function bindBsCtrl() {
+      $("bsYear")?.addEventListener("change", (e) => {
+        const s = bsState;
+        if (!s) return;
+        loadBs(s.crno, s.name, Number(e.target.value), s.years, s.missing, s.type);
+      });
+      $("bsType")?.addEventListener("change", (e) => {
+        if (!bsState) return;
+        bsState.type = e.target.value;
+        renderBs();
+      });
+    }
+
+    async function loadBs(crno, name, year, years, missing, type) {
+      const token = ++bsToken;
+      const ck = `${crno}|${year}`;
+
+      bsState = { crno, name, year, years, missing, type: type ?? null, types: [], rows: null };
+      bsPanel.innerHTML = `<div class="fin">${bsHeadHtml(bsState)}
+        <div class="progress">${year}년 재무상태표 조회 중...</div>
+        <div class="bar"><i style="width:60%"></i></div></div>`;
+      bindBsCtrl();
+
+      try {
+        let rows = bsCache.get(ck);
+        if (!rows) {
+          rows = await callApiAll(BS_URL, { crno, bizYear: String(year) }, `[재무상태표 ${year}] `);
+          bsCache.set(ck, rows);
+        }
+        if (token !== bsToken) return;
+
+        const typeMap = new Map();
+        for (const r of rows) {
+          const key = String(r.fnclDcd || r.fnclDcdNm || "");
+          if (!typeMap.has(key)) typeMap.set(key, String(r.fnclDcdNm || r.fnclDcd || "전체"));
+        }
+        const types = [...typeMap].map(([key, label]) => ({ key, label }));
+
+        const keep = type != null && typeMap.has(type) ? type : (types[0]?.key ?? "");
+        bsState = { crno, name, year, years, missing, type: keep, types, rows };
+        renderBs();
+      } catch (err) {
+        if (token !== bsToken) return;
+        console.error(err);
+        bsPanel.innerHTML = `<div class="fin">${bsHeadHtml(bsState)}${errorHtml(err)}</div>`;
+        bindBsCtrl();
+      } finally {
+        if (token === bsToken) renderLog();
+      }
+    }
+
+    function renderBs() {
+      const s = bsState;
+      if (!s || !s.rows) return;
+      const unit = settings.unit;
+      const head = bsHeadHtml(s);
+
+      const rows = s.rows.filter((r) => String(r.fnclDcd || r.fnclDcdNm || "") === s.type);
+
+      if (rows.length === 0) {
+        bsPanel.innerHTML = `<div class="fin">${head}
+          <div class="msg">${s.year}년 재무상태표 데이터가 없습니다.<br>
+          다른 사업연도를 선택해 보세요. 비상장·소규모 법인은 제공되지 않을 수 있습니다.</div></div>`;
+        bindBsCtrl();
+        return;
+      }
+
+      const nameOf = (r) => {
+        for (const k of BS_NAME_KEYS) if (r[k] !== "" && r[k] != null) return r[k];
+        return "-";
+      };
+
+      const cols = BS_COLS.filter(([key]) => rows.some((r) => r[key] !== "" && r[key] != null));
+
+      const body = rows.map((r) => {
+        const nm = String(nameOf(r));
+        const isTotal = /총계|합계|총액/.test(nm);
+        const cells = cols.map(([key]) => {
+          const c = fmtAmount(r[key], unit);
+          const title = r[key] !== "" && r[key] != null && !Number.isNaN(Number(r[key]))
+            ? ` title="${esc(Number(r[key]).toLocaleString("ko-KR"))}원"` : "";
+          return `<td class="${c.neg ? "neg" : ""}"${title}>${c.text}</td>`;
+        }).join("");
+        return `<tr class="${isTotal ? "total" : ""}"><td class="acc">${esc(nm)}</td>${cells}</tr>`;
+      }).join("");
+
+      const typeLabel = s.types.find((t) => t.key === s.type)?.label;
+
+      bsPanel.innerHTML = `
+        <div class="fin">
+          ${head}
+          ${cols.length === 0 ? `<div class="msg">금액 컬럼을 찾지 못했습니다. 아래 원본 데이터의 필드명을 확인하고 코드의 BS_COLS를 수정하세요.</div>` : ""}
+          <div class="tbl-wrap bs-wrap">
+            <table>
+              <thead><tr><th>계정과목</th>${cols.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+          <div class="note">
+            · ${s.year}년 ${typeLabel ? `<span class="badge">${esc(typeLabel)}</span> ` : ""}재무상태표 · 총 ${rows.length}개 계정과목<br>
+            · 금액 단위: ${UNITS[unit].label} (위쪽 요약재무제표의 단위 선택과 연동, 셀에 마우스를 올리면 원 단위 값 표시)<br>
+            · 배경이 강조된 행은 총계/합계 항목이고, 붉은색은 음수입니다.<br>
+            · 계정과목명이 "-"이거나 금액이 비어 있으면 API 필드명이 다른 경우입니다. 아래 원본 데이터를 확인하세요.
+          </div>
+          <details class="raw">
+            <summary>API 원본 데이터 보기</summary>
+            <pre>${esc(JSON.stringify(rows.slice(0, 30), null, 2))}${rows.length > 30 ? "\n... (이하 생략, 전체 " + rows.length + "건)" : ""}</pre>
+          </details>
+        </div>`;
+      bindBsCtrl();
+    }
+
+    /* ===== 주식발행정보 (발행현황 요약 + 탭) ===== */
+    let statState = null;
+    let statToken = 0;
+
+    const toNum = (v) => {
+      if (v === "" || v == null) return null;
+      const n = Number(v);
+      return Number.isNaN(n) ? null : n;
+    };
+    const pickNum = (row, keys) => {
+      for (const k of keys) {
+        const n = toNum(row[k]);
+        if (n != null) return { key: k, val: n };
+      }
+      return null;
+    };
+
+    function statHtml() {
+      const st = statState, s = stockState;
+      if (!st || !s || st.crno !== s.crno) return "";
+
+      let inner;
+      if (st.status === "loading") {
+        inner = `<div class="progress">발행현황 조회 중...</div>
+                 <div class="bar"><i style="width:60%"></i></div>`;
+      } else if (st.status === "error") {
+        inner = `<div class="stat-err">발행현황을 불러오지 못했습니다: ${esc(st.error?.message || st.error)}</div>`;
+      } else if (!st.rows || st.rows.length === 0) {
+        inner = `<div class="msg" style="padding:8px 0">발행현황 데이터가 없습니다. (비상장 법인이거나 미등록)</div>`;
+      } else {
+        const sorted = [...st.rows].sort((a, b) => String(b.basDt || "").localeCompare(String(a.basDt || "")));
+        const latest = sorted[0];
+        const ord = pickNum(latest, STAT_ORD_KEYS);
+        const prf = pickNum(latest, STAT_PRF_KEYS);
+
+        if (!ord && !prf) {
+          const keys = Object.keys(latest).filter((k) => !STOCK_HIDE.has(k) && latest[k] !== "" && latest[k] != null);
+          inner = `<div class="kv">${keys.map((k) =>
+            `<div><small>${esc(STOCK_LABELS[k] || k)}</small><b>${esc(fmtStock(k, latest[k]))}</b></div>`
+          ).join("")}</div>
+          <div class="note" style="margin-top:0">· 보통주/우선주 필드명을 자동 인식하지 못했습니다. 위 필드명을 코드의 STAT_ORD_KEYS / STAT_PRF_KEYS에 추가하세요.</div>`;
+        } else {
+          const o = ord ? ord.val : 0, p = prf ? prf.val : 0, total = o + p;
+          const op = total > 0 ? (o / total) * 100 : 0;
+          const pp = total > 0 ? (p / total) * 100 : 0;
+          const fmt = (n) => n.toLocaleString("ko-KR");
+          inner = `
+            <div class="kv">
+              <div><small>기준일자</small><b>${esc(fmtStock("basDt", latest.basDt))}</b></div>
+              <div><small>보통주 총발행수</small><b class="big">${ord ? fmt(o) : "-"}</b></div>
+              <div><small>우선주 총발행수</small><b class="big">${prf ? fmt(p) : "-"}</b></div>
+              <div><small>합계</small><b class="big">${fmt(total)}</b></div>
+            </div>
+            ${total > 0 ? `
+            <div class="split"><i class="o" style="width:${op}%"></i><i class="p" style="width:${pp}%"></i></div>
+            <div class="legend">
+              <span class="o">보통주 ${op.toFixed(1)}%</span>
+              <span class="p">우선주 ${pp.toFixed(1)}%</span>
+            </div>` : ""}`;
+        }
+      }
+
+      return `<div class="stat-box"><div class="sub-title">주식발행현황</div>${basisHtml(st.res)}${inner}</div>`;
+    }
+
+    function stockHeadHtml(s) {
+      return `
+        <div class="fin-head">
+          <h2><span class="no">03</span>${esc(s.name)} 주식발행정보 <small>${esc(formatCrno(s.crno))}</small></h2>
+        </div>
+        ${basisHtml(s.res)}
+        ${statHtml()}
+        <div class="tabs">
+          ${STOCK_TABS.map((t) => `<button type="button" data-tab="${t.key}" class="${t.key === s.tab ? "on" : ""}">${esc(t.label)}</button>`).join("")}
+        </div>`;
+    }
+
+    function bindStockCtrl() {
+      stockPanel.querySelectorAll(".tabs button").forEach((b) => {
+        b.addEventListener("click", () => {
+          const s = stockState;
+          if (!s || b.dataset.tab === s.tab) return;
+          loadStock(s.crno, s.name, b.dataset.tab);
+        });
+      });
+    }
+
+    function fmtStock(key, v) {
+      if (v === "" || v == null) return "-";
+      const str = String(v);
+      if (/Dt$/.test(key) && /^\d{8}$/.test(str)) return `${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6)}`;
+      if (!/Cd$/.test(key) && /^-?(0|[1-9]\d*)(\.\d+)?$/.test(str)) {
+        return Number(str).toLocaleString("ko-KR", { maximumFractionDigits: 4 });
+      }
+      return str;
+    }
+
+    async function loadStat(crno) {
+      const token = ++statToken;
+      const ck = `${crno}|stat`;
+      const cached = stockCache.get(ck);
+      if (cached) {
+        statState = { crno, status: "done", rows: cached.rows, res: cached };
+        return;
+      }
+      statState = { crno, status: "loading", rows: null, res: null };
+      try {
+        const res = await callByBasDt(STAT_URL, { crno }, "[주식 발행현황] ");
+        stockCache.set(ck, res);
+        if (token !== statToken) return;
+        statState = { crno, status: "done", rows: res.rows, res };
+      } catch (err) {
+        if (token !== statToken) return;
+        console.error(err);
+        statState = { crno, status: "error", error: err };
+      } finally {
+        if (token === statToken) {
+          if (stockState && stockState.crno === crno) renderStock();
+          renderLog();
+        }
+      }
+    }
+
+    async function loadStock(crno, name, tab) {
+      if (!statState || statState.crno !== crno || statState.status === "error") loadStat(crno);
+
+      const token = ++stockToken;
+      const def = STOCK_TABS.find((t) => t.key === tab) || STOCK_TABS[0];
+      stockState = { crno, name, tab: def.key, rows: null, res: null, error: null };
+      renderStock();
+
+      try {
+        const ck = `${crno}|${def.key}`;
+        let res = stockCache.get(ck);
+        if (!res) {
+          res = await callByBasDt(STOCK_BASE + def.path, { crno }, `[주식 ${def.label}] `);
+          stockCache.set(ck, res);
+        }
+        if (token !== stockToken) return;
+        stockState = { crno, name, tab: def.key, rows: res.rows, res, error: null };
+        renderStock();
+      } catch (err) {
+        if (token !== stockToken) return;
+        console.error(err);
+        stockState = { crno, name, tab: def.key, rows: null, res: null, error: err };
+        renderStock();
+      } finally {
+        if (token === stockToken) renderLog();
+      }
+    }
+
+    function renderStock() {
+      const s = stockState;
+      if (!s) return;
+      const def = STOCK_TABS.find((t) => t.key === s.tab) || STOCK_TABS[0];
+      const head = stockHeadHtml(s);
+
+      if (s.error) {
+        stockPanel.innerHTML = `<div class="fin">${head}${errorHtml(s.error)}</div>`;
+        bindStockCtrl();
+        return;
+      }
+      if (!s.rows) {
+        stockPanel.innerHTML = `<div class="fin">${head}
+          <div class="progress">${esc(def.label)} 조회 중...</div>
+          <div class="bar"><i style="width:60%"></i></div></div>`;
+        bindStockCtrl();
+        return;
+      }
+      if (s.rows.length === 0) {
+        stockPanel.innerHTML = `<div class="fin">${head}
+          <div class="msg">${esc(def.label)} 데이터가 없습니다.<br>
+          비상장 법인이거나 해당 정보가 등록되지 않은 경우입니다.</div></div>`;
+        bindStockCtrl();
+        return;
+      }
+
+      const sorted = [...s.rows].sort((a, b) => String(b.basDt || "").localeCompare(String(a.basDt || "")));
+
+      const keys = [];
+      for (const r of sorted) {
+        for (const k of Object.keys(r)) {
+          if (!keys.includes(k) && !STOCK_HIDE.has(k)) keys.push(k);
+        }
+      }
+      const usedKeys = keys.filter((k) => sorted.some((r) => r[k] !== "" && r[k] != null));
+      const label = (k) => STOCK_LABELS[k] || k;
+
+      let kvHtml = "";
+      let tableRows = sorted;
+      if (def.kv) {
+        const latest = sorted[0];
+        const kvKeys = usedKeys.filter((k) => latest[k] !== "" && latest[k] != null);
+        kvHtml = `<div class="kv">${kvKeys.map((k) =>
+          `<div><small>${esc(label(k))}</small><b>${esc(fmtStock(k, latest[k]))}</b></div>`
+        ).join("")}</div>`;
+        tableRows = sorted.slice(1);
+      }
+
+      let tableHtml = "";
+      if (tableRows.length > 0) {
+        tableHtml = `
+          ${def.kv ? `<div class="sub-title">같은 기준일자의 추가 항목 (${tableRows.length}건)</div>` : ""}
+          <div class="tbl-wrap st-wrap">
+            <table>
+              <thead><tr>${usedKeys.map((k) => `<th>${esc(label(k))}</th>`).join("")}</tr></thead>
+              <tbody>${tableRows.map((r) =>
+                `<tr>${usedKeys.map((k) => `<td>${esc(fmtStock(k, r[k]))}</td>`).join("")}</tr>`
+              ).join("")}</tbody>
+            </table>
+          </div>`;
+      }
+
+      stockPanel.innerHTML = `
+        <div class="fin">
+          ${head}
+          ${kvHtml}
+          ${tableHtml}
+          <div class="note">
+            · ${esc(def.label)} · 총 ${s.rows.length}건${def.kv ? " (첫 번째 항목을 위에 표시)" : ""}<br>
+            · 비어 있는 항목은 숨겼고, 날짜와 수량은 자동으로 서식을 적용했습니다.<br>
+            · 한글 라벨이 없는 항목은 필드명 그대로 표시됩니다. 코드의 STOCK_LABELS에 추가하면 라벨을 바꿀 수 있습니다.
+          </div>
+          <details class="raw">
+            <summary>API 원본 데이터 보기</summary>
+            <pre>${esc(JSON.stringify(s.rows.slice(0, 30), null, 2))}${s.rows.length > 30 ? "\n... (이하 생략, 전체 " + s.rows.length + "건)" : ""}</pre>
+          </details>
+        </div>`;
+      bindStockCtrl();
+    }
+
+    /* ---------- 클릭 / 키보드 ---------- */
+    resultEl.addEventListener("click", (e) => {
+      const copyBtn = e.target.closest(".copy");
+      if (copyBtn) {
+        e.stopPropagation();
+        navigator.clipboard.writeText(copyBtn.dataset.v).then(() => {
+          copyBtn.textContent = "복사됨!";
+          setTimeout(() => (copyBtn.textContent = "복사"), 1200);
+        });
+        return;
+      }
+      const card = e.target.closest(".card");
+      if (card) selectCompany(card.dataset.crno, card.dataset.name);
+    });
+
+    resultEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const card = e.target.closest(".card");
+      if (card && e.target === card) {
+        e.preventDefault();
+        selectCompany(card.dataset.crno, card.dataset.name);
+      }
+    });
+
+    /* ---------- 상담하기 (휴대폰 모달) ---------- */
+    const CONSULT_TO = "kyeongsunny97@gmail.com";
+    const PURPOSES = [
+      { key: "세무·회계 상담",        desc: "세무, 회계, 재무제표 해석 등 전문 상담" },
+      { key: "이 사이트 기능 상담",    desc: "조회 기능, 데이터 활용 방법, 개선 제안" },
+      { key: "사이트 주인에게 문의",   desc: "그 외 제휴, 의견 등 자유 문의" },
+    ];
+    const STEP_INFO = {
+      1: { no: "Step 1 / 3", title: "어떤 상담이<br>필요하신가요?", desc: "목적을 선택해 주세요." },
+      2: { no: "Step 2 / 3", title: "연락받을<br>전화번호", desc: "선택 사항입니다. 건너뛰셔도 됩니다." },
+      3: { no: "Step 3 / 3", title: "회신받을<br>이메일 주소", desc: "확인 버튼을 누르면 상담 요청이 전송됩니다." },
+    };
+
+    const cOverlay = $("consultOverlay"), cFoot = $("psFoot");
+    const psPhone = $("psPhone"), psEmail = $("psEmail");
+    const consult = { step: 1, purpose: null, sending: false };
+
+    $("psPurposes").innerHTML = PURPOSES.map((p, i) =>
+      `<button type="button" class="ps-card" data-i="${i}"><b>${p.key}</b><span>${p.desc}</span></button>`
+    ).join("");
+
+    function setFoot(buttons) {
+      cFoot.innerHTML = "";
+      buttons.forEach(([label, cls, fn, disabled]) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = cls; b.textContent = label; b.disabled = !!disabled;
+        b.addEventListener("click", fn);
+        cFoot.appendChild(b);
+      });
+    }
+
+    function goStep(n) {
+      consult.step = n;
+      document.querySelectorAll(".ps-step").forEach((el) => el.classList.toggle("on", Number(el.dataset.step) === n));
+      const head = $("psHead");
+      if (n === 4) {
+        head.style.display = "none";
+        setFoot([["닫기", "pri", closeConsult]]);
+        return;
+      }
+      head.style.display = "";
+      const info = STEP_INFO[n];
+      $("psStepNo").textContent = info.no;
+      $("psTitle").innerHTML = info.title;
+      $("psDesc").textContent = info.desc;
+      head.querySelectorAll(".ps-dots i").forEach((d, i) => d.classList.toggle("on", i < n));
+
+      if (n === 1) setFoot([["다음", "pri", () => goStep(2), !consult.purpose]]);
+      if (n === 2) {
+        setFoot([["이전", "sec", () => goStep(1)], ["건너뛰기", "sec", () => { psPhone.value = ""; $("psPhoneErr").textContent = ""; goStep(3); }], ["다음", "pri", nextFromPhone]]);
+        setTimeout(() => psPhone.focus(), 50);
+      }
+      if (n === 3) {
+        setFoot([["이전", "sec", () => goStep(2)], ["확인", "pri", submitConsult]]);
+        setTimeout(() => psEmail.focus(), 50);
+      }
+    }
+
+    function openConsult() {
+      Object.assign(consult, { step: 1, purpose: null, sending: false });
+      psPhone.value = ""; psEmail.value = "";
+      $("psPhoneErr").textContent = ""; $("psEmailErr").textContent = "";
+      document.querySelectorAll(".ps-card").forEach((c) => c.classList.remove("sel"));
+      cOverlay.classList.add("open");
+      cOverlay.setAttribute("aria-hidden", "false");
+      goStep(1);
+    }
+    function closeConsult() {
+      cOverlay.classList.remove("open");
+      cOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    $("consultOpen").addEventListener("click", openConsult);
+    $("consultClose").addEventListener("click", closeConsult);
+    cOverlay.addEventListener("click", (e) => { if (e.target === cOverlay) closeConsult(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && cOverlay.classList.contains("open")) closeConsult();
+      if (e.key === "Enter" && cOverlay.classList.contains("open") && e.target.classList.contains("ps-input")) {
+        e.preventDefault();
+        if (consult.step === 2) nextFromPhone();
+        if (consult.step === 3) submitConsult();
+      }
+    });
+
+    $("psPurposes").addEventListener("click", (e) => {
+      const card = e.target.closest(".ps-card");
+      if (!card) return;
+      consult.purpose = PURPOSES[Number(card.dataset.i)].key;
+      document.querySelectorAll(".ps-card").forEach((c) => c.classList.toggle("sel", c === card));
+      goStep(1);
+    });
+
+    function fmtPhone(d) {
+      if (d.length < 4) return d;
+      if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
+      if (d.length < 11) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+      return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+    }
+    psPhone.addEventListener("input", () => {
+      psPhone.value = fmtPhone(psPhone.value.replace(/\D/g, "").slice(0, 11));
+      $("psPhoneErr").textContent = "";
+    });
+    function nextFromPhone() {
+      const d = psPhone.value.replace(/\D/g, "");
+      if (!d) { $("psPhoneErr").textContent = "번호를 입력하거나 '건너뛰기'를 눌러 주세요."; return; }
+      if (!/^0\d{8,10}$/.test(d)) { $("psPhoneErr").textContent = "전화번호 형식이 올바르지 않습니다."; return; }
+      goStep(3);
+    }
+
+    psEmail.addEventListener("input", () => { $("psEmailErr").textContent = ""; });
+    async function submitConsult() {
+      if (consult.sending) return;
+      const email = psEmail.value.trim();
+      const err = $("psEmailErr");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = "이메일 주소 형식이 올바르지 않습니다."; return; }
+
+      consult.sending = true;
+      const confirmBtn = cFoot.querySelector(".pri");
+      confirmBtn.disabled = true; confirmBtn.textContent = "전송 중...";
+      err.textContent = "";
+
+      const activeCompany = document.querySelector(".card.active")?.dataset.name || "(선택 없음)";
+      try {
+        const res = await fetch("https://formsubmit.co/ajax/" + CONSULT_TO, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            _subject: `[상담 요청] ${consult.purpose}`,
+            _template: "table",
+            _captcha: "false",
+            "상담목적": consult.purpose,
+            "연락처": psPhone.value || "(미입력)",
+            email,
+            "조회중이던기업": activeCompany,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && (data.success === true || data.success === "true")) {
+          goStep(4);
+        } else {
+          throw new Error(data.message || `전송 실패 (HTTP ${res.status})`);
+        }
+      } catch (e) {
+        console.error(e);
+        err.textContent = "전송하지 못했습니다: " + (e.message || e);
+        confirmBtn.disabled = false; confirmBtn.textContent = "확인";
+      } finally {
+        consult.sending = false;
+      }
+    }
+  </script>
+</body>
+</html>
